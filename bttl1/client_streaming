@@ -1,0 +1,25 @@
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+int main() {
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in addr = {AF_INET, htons(9999), inet_addr("127.0.0.1")};
+    connect(s, (struct sockaddr*)&addr, sizeof(addr));
+
+    // Case dac biet: Cat chuoi lam 2 lan gui
+    char *part1 = "SOICT01234";
+    char *part2 = "56789ABC0123456789";
+
+    printf("Gui phan 1: %s\n", part1);
+    send(s, part1, strlen(part1), 0);
+    sleep(1);
+
+    printf("Gui phan 2: %s\n", part2);
+    send(s, part2, strlen(part2), 0);
+
+    close(s);
+    return 0;
+}
