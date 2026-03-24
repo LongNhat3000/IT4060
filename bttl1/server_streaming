@@ -1,53 +1,69 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
-#define TARGET "0123456789"
-#define PORT 9999
+#define PORT 9999       
+#define BUF 1024
 
 int main() {
     int s = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in addr = {AF_INET, htons(PORT), INADDR_ANY};
-    
-    bind(s, (struct sockaddr*)&addr, sizeof(addr));
-    listen(s, 5);
-    printf("Server 1.2 dang cho du lieu tai port %d...\n", PORT);
 
-    int c = accept(s, NULL, NULL);
-    char buf[1024];
-    char residual[10] = ""; // Luu 9 ky tu cuoi cua lan nhan truoc
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    
+    int opt = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Loi bind");
+        return 1;
+    }
+    
+    listen(s, 5);
+    printf("Server 1.2 dang cho ket noi tai port %d...\n", PORT);
+
+    int client = accept(s, NULL, NULL);
+
+    char buf[BUF], prev[BUF] = ""; 
     int count = 0;
 
     while (1) {
-        int n = recv(c, buf, sizeof(buf) - 1, 0);
-        if (n <= 0) break;
-        buf[n] = '\0';
+        int len = recv(client, buf, BUF - 1, 0);
+        if (len <= 0) break;
+        buf[len] = '\0';
 
-        // Tao buffer tam de ghep phan du cu voi du lieu moi
-        char temp[2048];
-        sprintf(temp, "%s%s", residual, buf);
+        buf[strcspn(buf, "\r\n")] = '\0';
 
-        // Tim kiem chuoi muc tieu
-        char *ptr = temp;
-        while ((ptr = strstr(ptr, TARGET)) != NULL) {
+        char merged[BUF * 2];
+        sprintf(merged, "%s%s", prev, buf);
+
+        char *p = merged;
+
+        // Tìm kiếm xâu mục tiêu
+        while ((p = strstr(p, "0123456789")) != NULL) {
             count++;
-            ptr += 1; 
+            p += 10; 
         }
 
-        // Cap nhat phan du (9 ky tu cuoi cung)
-        int len = strlen(temp);
-        if (len >= 9) {
-            strcpy(residual, temp + len - 9);
+        // In kết quả theo
+        printf("so lan xuat hien xau ky tu \"0123456789\" la : %d\n", count);
+
+        // Lưu 9 ký tự cuối để ghép với lần nhận tiếp theo
+        int mlen = strlen(merged);
+        if (mlen >= 9) {
+            strcpy(prev, merged + mlen - 9);
         } else {
-            strcpy(residual, temp);
+            strcpy(prev, merged);
         }
-
-        printf("Nhan duoc: %s | Tong so chuoi '0123456789': %d\n", buf, count);
     }
 
-    close(c); close(s);
+    close(client);
+    close(s);
+    printf("Ket thuc phien lam viec.\n");
     return 0;
 }
