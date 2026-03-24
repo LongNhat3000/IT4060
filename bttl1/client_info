@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Su dung: %s <IP> <Port>\n", argv[0]);
+        return 1;
+    }
+
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in serv;
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = inet_addr(argv[1]);
+    serv.sin_port = htons(atoi(argv[2]));
+
+    if (connect(s, (struct sockaddr *)&serv, sizeof(serv)) < 0) {
+        perror("Loi ket noi");
+        return 1;
+    }
+
+    char buf[4096];
+    int pos = 0;
+
+    // 1. Đóng gói tên thư mục hiện tại 
+    getcwd(buf, 256);
+    pos = strlen(buf) + 1; 
+
+    // 2. Mở thư mục để quét file
+    DIR *d = opendir(".");
+    struct dirent *dir;
+    struct stat st;
+
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            // Chỉ gửi các file thông thường (S_ISREG)
+            if (stat(dir->d_name, &st) == 0 && S_ISREG(st.st_mode)) {
+                // Gửi tên file trước (kèm \0)
+                strcpy(buf + pos, dir->d_name);
+                pos += strlen(dir->d_name) + 1;
+
+                // Gửi kích thước file ngay sau đó 
+                memcpy(buf + pos, &st.st_size, sizeof(long));
+                pos += sizeof(long);
+            }
+        }
+        closedir(d);
+    }
+
+    // 3. Gửi toàn bộ buffer đã đóng gói
+    send(s, buf, pos, 0);
+    printf("Da gui du lieu thu muc thanh cong! (Tong: %d bytes)\n", pos);
+
+    close(s);
+    return 0;
+}
