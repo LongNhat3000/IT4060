@@ -1,0 +1,69 @@
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#define PORT 9999       
+#define BUF 1024
+
+int main() {
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    
+    int opt = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Loi bind");
+        return 1;
+    }
+    
+    listen(s, 5);
+    printf("Server 1.2 dang cho ket noi tai port %d...\n", PORT);
+
+    int client = accept(s, NULL, NULL);
+
+    char buf[BUF], prev[BUF] = ""; 
+    int count = 0;
+
+    while (1) {
+        int len = recv(client, buf, BUF - 1, 0);
+        if (len <= 0) break;
+        buf[len] = '\0';
+
+        buf[strcspn(buf, "\r\n")] = '\0';
+
+        char merged[BUF * 2];
+        sprintf(merged, "%s%s", prev, buf);
+
+        char *p = merged;
+
+        // Tìm kiếm xâu mục tiêu
+        while ((p = strstr(p, "0123456789")) != NULL) {
+            count++;
+            p += 10; 
+        }
+
+        // In kết quả theo
+        printf("so lan xuat hien xau ky tu \"0123456789\" la : %d\n", count);
+
+        // Lưu 9 ký tự cuối để ghép với lần nhận tiếp theo
+        int mlen = strlen(merged);
+        if (mlen >= 9) {
+            strcpy(prev, merged + mlen - 9);
+        } else {
+            strcpy(prev, merged);
+        }
+    }
+
+    close(client);
+    close(s);
+    printf("Ket thuc phien lam viec.\n");
+    return 0;
+}

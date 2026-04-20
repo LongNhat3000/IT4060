@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#define PORT 9999
+#define BUF 1024
+
+int main() {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("Loi tao socket");
+        return 1;
+    }
+
+    struct sockaddr_in server = {0};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(PORT);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
+        perror("Loi ket noi den Server");
+        return 1;
+    }
+
+    printf("--- Client 1.2 da ket noi den Port %d ---\n", PORT);
+    printf("Nhap du lieu tu ban phim (nhan Enter de gui):\n");
+
+    char input[BUF];
+    while (fgets(input, sizeof(input), stdin) != NULL) {
+        // Gui du lieu sang Server
+        if (send(sock, input, strlen(input), 0) < 0) {
+            perror("Loi gui du lieu");
+            break;
+        }
+    }
+
+    printf("Dang dong ket noi...\n");
+    close(sock);
+    return 0;
+}
